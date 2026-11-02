@@ -1,0 +1,102 @@
+# ==========================================
+# Git Ignore Configuration
+# Signal_Project2: FPGA Audio Enhancer
+# ==========================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & IDEs
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+
+# Audio Recordings (Generated outputs)
+*.wav
+recordings/
+
+# --- Intel Quartus Prime / FPGA Artifacts ---
+# Compilation databases and intermediate synthesis folders
+db/
+incremental_db/
+output_files/
+greybox_tmp/
+hc_output/
+hc_db/
+c5_gui/
+hps_isw_handoff/
+simulation/
+
+# Quartus report, bitstream and programming files
+*.sof
+*.pof
+*.jam
+*.jbc
+*.ekp
+*.jdi
+*.pin
+*.done
+*.smsg
+*.summary
+*.rpt
+*.chg
+*.qws
+*.ddb
+*.csv
+*.cmp.xml
+*.flow.rpt
+*.map.rpt
+*.fit.rpt
+*.asm.rpt
+*.sta.rpt
+*.sta.summary
+*.eda.rpt
+*.tan.rpt
+*.tan.summary
+
+# Backup and temp files
+*.bak
+*.orig
+*~
+*.tmp
+
+# --- OS Specific ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.Spotlight-V100
+.Trashes
