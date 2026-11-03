@@ -58,6 +58,7 @@ hc_db/
 c5_gui/
 hps_isw_handoff/
 simulation/
+.qsys_edit/
 
 # Quartus report, bitstream and programming files
 *.sof

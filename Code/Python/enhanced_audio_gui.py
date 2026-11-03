@@ -244,7 +244,10 @@ class AudioEnhancerGUI:
 
         # แกนพล็อตโดเมนเวลา (Time-Domain Waveform)
         self.ax_time = self.fig.add_subplot(2, 1, 1, facecolor="#0e131b")
-        self.ax_time.set_title("Time-Domain Waveform (Block N=1024, 64 ms)", color="#b0bec5", fontsize=10, loc="left", pad=6)
+        self.title_time = self.ax_time.set_title(
+            f"Time-Domain Waveform (N=1024, 64 ms)  |  Peak: ±0  |  RMS: 0.0  |  Th: ±{int(self.threshold)}",
+            color="#b0bec5", fontsize=9, loc="left", pad=6
+        )
         self.ax_time.set_xlabel("Time (ms)", color="#78909c", fontsize=8)
         self.ax_time.set_ylabel("Amplitude (16-bit)", color="#78909c", fontsize=8)
         self.ax_time.set_xlim(0, (BLOCK_SIZE / FS) * 1000)
@@ -260,13 +263,16 @@ class AudioEnhancerGUI:
         self.line_time_enh, = self.ax_time.plot(self.time_axis_ms, np.zeros(BLOCK_SIZE), color="#00e5ff", linewidth=1.4, label="Enhanced Signal")
         
         # เส้น Threshold ของ Noise Gate (±Threshold)
-        self.line_th_pos = self.ax_time.axhline(self.threshold, color="#ff7043", linestyle=":", linewidth=1.1, label="Gate Threshold")
+        self.line_th_pos = self.ax_time.axhline(self.threshold, color="#ff7043", linestyle=":", linewidth=1.1, label=f"Gate Th (±{int(self.threshold)})")
         self.line_th_neg = self.ax_time.axhline(-self.threshold, color="#ff7043", linestyle=":", linewidth=1.1)
         self.ax_time.legend(loc="upper right", facecolor="#161b26", edgecolor="#212b3d", labelcolor="#cfd8dc", fontsize=8)
 
         # แกนพล็อตโดเมนความถี่ (Frequency-Domain FFT Spectrum)
         self.ax_freq = self.fig.add_subplot(2, 1, 2, facecolor="#0e131b")
-        self.ax_freq.set_title("Frequency-Domain FFT Spectrum (Hann Window, Δf = 15.625 Hz)", color="#b0bec5", fontsize=10, loc="left", pad=6)
+        self.title_freq = self.ax_freq.set_title(
+            f"FFT Spectrum (Hann Window, Δf = 15.6 Hz)  |  Peak: 0 Hz (0.0 dB)  |  Band: [{int(self.f_low)} - {int(self.f_high)} Hz]",
+            color="#b0bec5", fontsize=9, loc="left", pad=6
+        )
         self.ax_freq.set_xlabel("Frequency (Hz)", color="#78909c", fontsize=8)
         self.ax_freq.set_ylabel("Magnitude (dB)", color="#78909c", fontsize=8)
         self.ax_freq.set_xlim(0, FS / 2)  # 0 ถึง 8000 Hz
@@ -279,6 +285,9 @@ class AudioEnhancerGUI:
 
         self.line_freq_raw, = self.ax_freq.plot(self.freq_bins, np.zeros(len(self.freq_bins)), color="#607d8b", alpha=0.55, linewidth=1.0, label="Raw Spectrum")
         self.line_freq_enh, = self.ax_freq.plot(self.freq_bins, np.zeros(len(self.freq_bins)), color="#00e676", linewidth=1.3, label="Enhanced Spectrum")
+
+        # จุด Marker ความถี่หลัก (Dominant Peak)
+        self.peak_marker, = self.ax_freq.plot([], [], marker="o", markersize=5, color="#ff5252", linestyle="None", label="Dominant Peak")
 
         # เส้นความถี่ตัด High-Pass / Low-Pass
         self.line_f_low = self.ax_freq.axvline(self.f_low, color="#ffd54f", linestyle="--", linewidth=1.0, label=f"High-Pass ({int(self.f_low)} Hz)")
@@ -312,8 +321,8 @@ class AudioEnhancerGUI:
         self.cbo_port.pack(side=tk.LEFT, padx=4)
 
         ttk.Label(port_row, text="Baud:", style="Card.TLabel").pack(side=tk.LEFT, padx=(4, 0))
-        self.cbo_baud = ttk.Combobox(port_row, values=["115200", "460800", "921600", "2000000"], width=8, state="readonly")
-        self.cbo_baud.set("921600")
+        self.cbo_baud = ttk.Combobox(port_row, values=["1000000", "921600", "460800", "115200", "2000000"], width=8, state="readonly")
+        self.cbo_baud.set("1000000")
         self.cbo_baud.pack(side=tk.LEFT, padx=4)
 
         self.btn_refresh_ports = ttk.Button(port_row, text="🔄", width=3, command=self._refresh_serial_ports)
@@ -384,13 +393,25 @@ class AudioEnhancerGUI:
         self.lbl_telem_rms = ttk.Label(grid_telem, text="0.0", style="Value.TLabel")
         self.lbl_telem_rms.grid(row=0, column=1, sticky=tk.E, padx=10, pady=2)
 
-        ttk.Label(grid_telem, text="Noise Gate Status:", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.lbl_telem_gate = ttk.Label(grid_telem, text="OPEN (100%)", style="Value.TLabel", foreground="#00e676")
-        self.lbl_telem_gate.grid(row=1, column=1, sticky=tk.E, padx=10, pady=2)
+        ttk.Label(grid_telem, text="Peak Amplitude:", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.lbl_telem_peak = ttk.Label(grid_telem, text="±0", style="Value.TLabel")
+        self.lbl_telem_peak.grid(row=1, column=1, sticky=tk.E, padx=10, pady=2)
 
-        ttk.Label(grid_telem, text="Clipping Status:", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=2)
+        ttk.Label(grid_telem, text="Dominant Freq:", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.lbl_telem_freq = ttk.Label(grid_telem, text="0 Hz", style="Value.TLabel", foreground="#ffb74d")
+        self.lbl_telem_freq.grid(row=2, column=1, sticky=tk.E, padx=10, pady=2)
+
+        ttk.Label(grid_telem, text="Noise Reduction:", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.lbl_telem_atten_db = ttk.Label(grid_telem, text="0.0 dB", style="Value.TLabel", foreground="#26c6da")
+        self.lbl_telem_atten_db.grid(row=3, column=1, sticky=tk.E, padx=10, pady=2)
+
+        ttk.Label(grid_telem, text="Noise Gate Status:", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=2)
+        self.lbl_telem_gate = ttk.Label(grid_telem, text="OPEN (100%)", style="Value.TLabel", foreground="#00e676")
+        self.lbl_telem_gate.grid(row=4, column=1, sticky=tk.E, padx=10, pady=2)
+
+        ttk.Label(grid_telem, text="Clipping Status:", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=2)
         self.lbl_telem_clip = ttk.Label(grid_telem, text="NORMAL", style="Value.TLabel", foreground="#00e676")
-        self.lbl_telem_clip.grid(row=2, column=1, sticky=tk.E, padx=10, pady=2)
+        self.lbl_telem_clip.grid(row=5, column=1, sticky=tk.E, padx=10, pady=2)
 
     def _build_statusbar(self):
         self.status_bar = ttk.Frame(self.root, padding="6 4 10 4")
@@ -438,6 +459,10 @@ class AudioEnhancerGUI:
         # ขั้นที่ 1: แปลงเป็นทศนิยม float64 และลบไฟตรง DC Offset
         x_float = raw_int16.astype(np.float64)
         x_zero = x_float - np.mean(x_float)
+
+        # ปรับสเกลข้อมูลจาก ADC 12-bit ของ MAX 10 FPGA (0-4095) ให้เต็มสเกล 16-bit PCM (x16.0)
+        if self.source_mode == "Serial":
+            x_zero *= 16.0
 
         # ขั้นที่ 2: 4th-Order IIR Butterworth Bandpass (Stateful SOS Filtering)
         y_filt, self.filter_zi = scipy.signal.sosfilt(self.sos, x_zero, zi=self.filter_zi)
@@ -526,16 +551,19 @@ class AudioEnhancerGUI:
         ตรวจจับ Header Sync 2 ไบต์ (0xAA 0x55)
         แล้วอ่าน Payload ขนาด 2,048 ไบต์ (1024 ตัวอย่าง 16-bit PCM little-endian)
         """
-        # ค้นหา Header Sync
-        while self.is_running and ser.is_open:
-            b1 = ser.read(1)
-            if b1 == b"\xAA":
-                b2 = ser.read(1)
-                if b2 == b"\x55":
-                    # พบ Header Sync แล้ว! อ่าน Payload ครบ 2048 ไบต์
-                    payload = ser.read(PAYLOAD_BYTES)
-                    if len(payload) == PAYLOAD_BYTES:
-                        return np.frombuffer(payload, dtype="<i2")
+        # เคลียร์ข้อมูลสะสมในบัฟเฟอร์หากค้างมากเกินไป เพื่อป้องกัน Latency ดีเลย์สะสม
+        if ser.in_waiting > PAYLOAD_BYTES * 4:
+            ser.reset_input_buffer()
+
+        # ค้นหา Header Sync ด้วย read_until (0xAA 0x55)
+        header = ser.read_until(FRAME_HEADER)
+        if not header.endswith(FRAME_HEADER):
+            return None
+
+        # อ่าน Payload ให้ครบ 2,048 ไบต์
+        payload = ser.read(PAYLOAD_BYTES)
+        if len(payload) == PAYLOAD_BYTES:
+            return np.frombuffer(payload, dtype="<i2")
         return None
 
     # -------------------------------------------------------------------------
@@ -575,11 +603,43 @@ class AudioEnhancerGUI:
             self.line_freq_raw.set_ydata(raw_db)
             self.line_freq_enh.set_ydata(enh_db)
 
+            # คำนวณค่าทางสถิติและ DSP เพิ่มเติมแบบเวลาจริง (Valuable Real-Time Metrics)
+            # 2.1 หาความถี่หลัก Dominant Peak Frequency (ข้าม bin 0 เพื่อไม่เอาไฟตรง)
+            peak_idx = int(np.argmax(enh_fft[1:])) + 1
+            peak_freq = float(self.freq_bins[peak_idx])
+            peak_mag = float(enh_db[peak_idx])
+
+            # 2.2 หาค่า Peak Amplitude สูงสุดในบล็อก
+            peak_amp = int(np.max(np.abs(y_enh)))
+
+            # 2.3 คำนวณระดับการลดทอนสัญญาณรบกวนนอกย่านผ่าน (Stopband Attenuation / Noise Reduction)
+            stopband_mask = (self.freq_bins < self.f_low) | (self.freq_bins > self.f_high)
+            if np.any(stopband_mask):
+                raw_stop_mean = float(np.mean(raw_db[stopband_mask]))
+                enh_stop_mean = float(np.mean(enh_db[stopband_mask]))
+                atten_diff_db = max(0.0, raw_stop_mean - enh_stop_mean)
+            else:
+                atten_diff_db = 0.0
+
+            # อัปเดต Marker จุดยอดความถี่หลักบนกราฟ FFT
+            self.peak_marker.set_data([peak_freq], [peak_mag])
+
+            # อัปเดตหัวข้อกราฟพร้อมตัวเลขวิเคราะห์แบบสด
+            self.title_time.set_text(
+                f"Time-Domain Waveform (N=1024, 64 ms)  |  Peak: ±{peak_amp}  |  RMS: {rms:.1f}  |  Th: ±{int(self.threshold)}"
+            )
+            self.title_freq.set_text(
+                f"FFT Spectrum (Δf=15.6 Hz)  |  Dominant Peak: {peak_freq:.0f} Hz ({peak_mag:.1f} dB)  |  Band: [{int(self.f_low)} - {int(self.f_high)} Hz]"
+            )
+
             # วาดใหม่
             self.canvas.draw_idle()
 
-            # 3. อัปเดตข้อมูล Telemetry
+            # 3. อัปเดตข้อมูล Telemetry บนแผงควบคุม
             self.lbl_telem_rms.config(text=f"{rms:.1f}")
+            self.lbl_telem_peak.config(text=f"±{peak_amp}")
+            self.lbl_telem_freq.config(text=f"{peak_freq:.0f} Hz ({peak_mag:.1f} dB)")
+            self.lbl_telem_atten_db.config(text=f"-{atten_diff_db:.1f} dB")
 
             if atten >= 0.99:
                 self.lbl_telem_gate.config(text="OPEN (100%)", foreground="#00e676")
@@ -602,19 +662,28 @@ class AudioEnhancerGUI:
         self.f_low = float(val)
         self.lbl_flow_val.config(text=f"High-Pass Cutoff (f_low): {int(self.f_low)} Hz")
         self.line_f_low.set_xdata([self.f_low, self.f_low])
+        self.line_f_low.set_label(f"High-Pass ({int(self.f_low)} Hz)")
+        self.ax_freq.legend(loc="upper right", facecolor="#161b26", edgecolor="#212b3d", labelcolor="#cfd8dc", fontsize=8)
         self.sos = self._design_bandpass_sos(self.f_low, self.f_high)
+        self.canvas.draw_idle()
 
     def _on_fhigh_change(self, val):
         self.f_high = float(val)
         self.lbl_fhigh_val.config(text=f"Low-Pass Cutoff (f_high): {int(self.f_high)} Hz")
         self.line_f_high.set_xdata([self.f_high, self.f_high])
+        self.line_f_high.set_label(f"Low-Pass ({int(self.f_high)} Hz)")
+        self.ax_freq.legend(loc="upper right", facecolor="#161b26", edgecolor="#212b3d", labelcolor="#cfd8dc", fontsize=8)
         self.sos = self._design_bandpass_sos(self.f_low, self.f_high)
+        self.canvas.draw_idle()
 
     def _on_threshold_change(self, val):
         self.threshold = float(val)
         self.lbl_th_val.config(text=f"Noise Gate Threshold: {int(self.threshold)}")
         self.line_th_pos.set_ydata([self.threshold, self.threshold])
         self.line_th_neg.set_ydata([-self.threshold, -self.threshold])
+        self.line_th_pos.set_label(f"Gate Th (±{int(self.threshold)})")
+        self.ax_time.legend(loc="upper right", facecolor="#161b26", edgecolor="#212b3d", labelcolor="#cfd8dc", fontsize=8)
+        self.canvas.draw_idle()
 
     def _on_gain_change(self, val):
         self.gain_boost = float(val)
